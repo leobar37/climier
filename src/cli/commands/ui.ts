@@ -21,6 +21,8 @@ export const knownFlags = ["port", "open"];
 
 const DEFAULT_PORT = 7373;
 const LOOPBACK_HOST = "127.0.0.1";
+// Local patch: bind beyond loopback (e.g. Tailscale) via CLIMIER_UI_HOST.
+const UI_BIND_HOST = process.env.CLIMIER_UI_HOST?.trim() || LOOPBACK_HOST;
 const PROTOCOL_VERSION = "1";
 const UI_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -203,7 +205,7 @@ export async function startLocalUiServer({ projectDir, uiRoot = UI_ROOT, indexFi
   const server = createLocalUiServer({ projectDir, uiRoot, indexFile, clock });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, LOOPBACK_HOST, () => resolve());
+    server.listen(port, UI_BIND_HOST, () => resolve());
   });
   const address = server.address();
   if (!address || typeof address !== "object") {
@@ -212,7 +214,7 @@ export async function startLocalUiServer({ projectDir, uiRoot = UI_ROOT, indexFi
   }
   return {
     server,
-    url: `http://${LOOPBACK_HOST}:${address.port}`,
+    url: `http://${UI_BIND_HOST}:${address.port}`,
     projectId: localProjectId(projectDir),
   };
 }
