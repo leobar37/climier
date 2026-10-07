@@ -45,6 +45,22 @@ function isUnauthorized(error: unknown): boolean {
 function isStateUninitialized(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "STATE_NOT_INITIALIZED");
 }
+function readRequestedProjectParam(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = new URLSearchParams(window.location.search).get("project");
+    return value?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+function findProjectByIdOrName(list: ProjectSummary[], value: string): ProjectSummary | null {
+  const needle = value.trim().toLowerCase();
+  if (!needle) return null;
+  return list.find((project) => project.project_id.toLowerCase() === needle)
+    ?? list.find((project) => (project.name ?? "").trim().toLowerCase() === needle)
+    ?? null;
+}
 
 export function ProjectProvider(props: { children: JSX.Element; mode?: RuntimeMode; fixtureSnapshot?: unknown }) {
   const runtime = useRuntime();
@@ -212,9 +228,17 @@ export function ProjectProvider(props: { children: JSX.Element; mode?: RuntimeMo
 
   createEffect(() => {
     const list = projects();
-    if (mode !== "fixture" && !selectedId() && list[0]) setSearchParams({ project: list[0].project_id });
+    if (mode === "fixture" || !list[0]) return;
+    const id = selectedId();
+    if (id) {
+      if (list.some((project) => project.project_id === id)) return;
+      const byName = findProjectByIdOrName(list, id);
+      if (byName) setSearchParams({ project: byName.project_id });
+      return;
+    }
+    const requested = findProjectByIdOrName(list, readRequestedProjectParam() ?? "");
+    setSearchParams({ project: (requested ?? list[0]).project_id });
   });
-
   createEffect(() => {
     const id = selectedId();
     const catalog = catalogStatus();
