@@ -53,8 +53,23 @@ function routeNotFound() {
   return httpError("ROUTE_NOT_FOUND", "server http: route was not found", undefined, 404);
 }
 
+// Local patch: the board labels projects by their derived project_id (sha1 of the
+// checkout path). An optional <stateDir>/names.json maps ids to readable names.
+function displayNameFor(projectId) {
+  try {
+    const raw = fsSync.readFileSync(path.join(climierHome(), "names.json"), "utf8");
+    const name = JSON.parse(raw)?.[projectId];
+    if (typeof name === "string" && name.trim().length > 0) {
+      return name.trim();
+    }
+  } catch {
+    // Sin names.json (o ilegible): el board cae al project_id.
+  }
+  return projectId;
+}
+
 function localProjectRef(projectId) {
-  return { id: projectId, name: projectId, projectDir: path.join(climierHome(), "projects", projectId) };
+  return { id: projectId, name: displayNameFor(projectId), projectDir: path.join(climierHome(), "projects", projectId) };
 }
 
 async function resolveLocalProject(projectId) {
@@ -101,7 +116,7 @@ async function localProjectSummary(projectId) {
   }
   return {
     project_id: projectId,
-    name: projectId,
+    name: displayNameFor(projectId),
     revision: state && Number.isInteger(state.revision) ? state.revision : 0,
     node_count: state && state.nodes && typeof state.nodes === "object" && !Array.isArray(state.nodes)
       ? Object.keys(state.nodes).length
